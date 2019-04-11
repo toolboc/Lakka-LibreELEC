@@ -1,34 +1,16 @@
-################################################################################
-#      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2009-2016 Lukas Rusak (lrusak@libreelec.tv)
-#
-#  LibreELEC is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 2 of the License, or
-#  (at your option) any later version.
-#
-#  LibreELEC is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
-################################################################################
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2009-2016 Lukas Rusak (lrusak@libreelec.tv)
+# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="containerd"
-PKG_VERSION="aa8187d"
-PKG_ARCH="any"
+PKG_VERSION="1.2.2"
+PKG_SHA256="91d480816986d74ff4fa7dd0412c787615fa705975b18fa4079c333b137c653f"
 PKG_LICENSE="APL"
 PKG_SITE="https://containerd.tools/"
-PKG_URL="https://github.com/docker/containerd/archive/${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/containerd/containerd/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain go:host"
-PKG_SECTION="system"
-PKG_SHORTDESC="containerd is a daemon to control runC"
-PKG_LONGDESC="containerd is a daemon to control runC, built for performance and density. containerd leverages runC's advanced features such as seccomp and user namespace support as well as checkpoint and restore for cloning and live migration of containers."
-
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
+PKG_LONGDESC="A daemon to control runC, built for performance and density."
+PKG_TOOLCHAIN="manual"
 
 pre_make_target() {
   case $TARGET_ARCH in
@@ -42,9 +24,9 @@ pre_make_target() {
         arm1176jzf-s)
           export GOARM=6
           ;;
-        cortex-a7)
-         export GOARM=7
-         ;;
+        *)
+          export GOARM=7
+          ;;
       esac
       ;;
     aarch64)
@@ -56,21 +38,28 @@ pre_make_target() {
   export CGO_ENABLED=1
   export CGO_NO_EMULATION=1
   export CGO_CFLAGS=$CFLAGS
-  export LDFLAGS="-w -extldflags -static -X github.com/docker/containerd.GitCommit=${PKG_VERSION} -extld $CC"
+  export CONTAINERD_VERSION=v${PKG_VERSION}
+  export CONTAINERD_REVISION=${PKG_VERSION}
+  export CONTAINERD_PKG=github.com/containerd/containerd
+  export LDFLAGS="-w -extldflags -static -X ${CONTAINERD_PKG}/version.Version=${CONTAINERD_VERSION} -X ${CONTAINERD_PKG}/version.Revision=${CONTAINERD_REVISION} -X ${CONTAINERD_PKG}/version.Package=${CONTAINERD_PKG} -extld $CC"
   export GOLANG=$TOOLCHAIN/lib/golang/bin/go
-  export GOPATH=$PKG_BUILD.gopath:$PKG_BUILD/vendor/
+  export GOPATH=$PKG_BUILD/.gopath
   export GOROOT=$TOOLCHAIN/lib/golang
   export PATH=$PATH:$GOROOT/bin
 
-  ln -fs $PKG_BUILD $PKG_BUILD/vendor/src/github.com/docker/containerd
+  mkdir -p $PKG_BUILD/.gopath
+  if [ -d $PKG_BUILD/vendor ]; then
+    mv $PKG_BUILD/vendor $PKG_BUILD/.gopath/src
+  fi
+
+  ln -fs $PKG_BUILD $PKG_BUILD/.gopath/src/github.com/containerd/containerd
 }
 
 make_target() {
   mkdir -p bin
-  $GOLANG build -v -o bin/containerd      -a -tags "static_build" -ldflags "$LDFLAGS" ./containerd
-  $GOLANG build -v -o bin/containerd-shim -a -tags "static_build" -ldflags "$LDFLAGS" ./containerd-shim
-}
-
-makeinstall_target() {
-  :
+  $GOLANG build -v -o bin/containerd      -a -tags "static_build no_btrfs" -ldflags "$LDFLAGS" ./cmd/containerd
+  $GOLANG build -v -o bin/containerd-shim -a -tags "static_build no_btrfs" -ldflags "$LDFLAGS" ./cmd/containerd-shim
+  $GOLANG build -v -o bin/ctr      -a -tags "static_build no_btrfs" -ldflags "$LDFLAGS" ./cmd/ctr
+  $GOLANG build -v -o bin/containerd-stress      -a -tags "static_build no_btrfs" -ldflags "$LDFLAGS" ./cmd/containerd-stress
+  $GOLANG build -v -o bin/containerd-shim-runc-v1      -a -tags "static_build no_btrfs" -ldflags "$LDFLAGS" ./cmd/containerd-shim-runc-v1
 }
