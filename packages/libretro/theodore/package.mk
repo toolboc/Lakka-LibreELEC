@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="theodore"
-PKG_VERSION="9cf6f92"
+PKG_VERSION="ddd33c4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
